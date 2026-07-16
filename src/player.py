@@ -29,8 +29,17 @@
 # SPDX-License-Identifier: MIT
 
 import gi
-gi.require_version('GSound', '1.0')
-from gi.repository import GSound
+
+try:
+    gi.require_version("GSound", "1.0")
+    from gi.repository import GSound
+except (ValueError, ImportError) as exc:
+    raise RuntimeError(
+        "GSound is not available. Install the GSound typelib package "
+        "for your distribution. On Ubuntu/Debian run: "
+        "sudo apt install gir1.2-gsound-1.0 libgsound0"
+    ) from exc
+
 
 class Player:
     def __init__(self, repeat, cancellable):
@@ -40,14 +49,16 @@ class Player:
         self.cancellable = cancellable
 
         if self.repeat:
-            self.sound_id = 'alarm-clock-elapsed'
+            self.sound_id = "alarm-clock-elapsed"
         else:
-            self.sound_id = 'complete'
+            self.sound_id = "complete"
 
     def play(self):
-        self.gsound.play_full({GSound.ATTR_EVENT_ID: self.sound_id, \
-            GSound.ATTR_MEDIA_ROLE: 'alarm'}, self.cancellable, \
-            self.sound_finished)
+        self.gsound.play_full(
+            {GSound.ATTR_EVENT_ID: self.sound_id, GSound.ATTR_MEDIA_ROLE: "alarm"},
+            self.cancellable,
+            self.sound_finished,
+        )
 
     def sound_finished(self, *args):
         if self.repeat and not self.cancellable.is_cancelled():

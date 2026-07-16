@@ -30,70 +30,116 @@
 
 import os
 import subprocess
+from gettext import gettext as _
+
 from gi.repository import Gio, GLib
+
 from .player import Player
+
+_notify_send_missing_warned = False
 
 
 def action_poweroff():
-    if os.getenv('XDG_CURRENT_DESKTOP') == 'GNOME':
+    if os.getenv("XDG_CURRENT_DESKTOP") == "GNOME":
         bus = Gio.bus_get_sync(Gio.BusType.SESSION, None)
-        bus.call('org.gnome.SessionManager', # Bus name
-            '/org/gnome/SessionManager', # Object path
-            'org.gnome.SessionManager', # Interface name
-            'Shutdown', # Method name
-            None, # Parameters
-            None, # Reply type
-            Gio.DBusCallFlags.NONE, # Flags
-            -1, # Timeout
-            None, # Cancellable
-            None, # Callback
-            None) # User data
+        bus.call(
+            "org.gnome.SessionManager",  # Bus name
+            "/org/gnome/SessionManager",  # Object path
+            "org.gnome.SessionManager",  # Interface name
+            "Shutdown",  # Method name
+            None,  # Parameters
+            None,  # Reply type
+            Gio.DBusCallFlags.NONE,  # Flags
+            -1,  # Timeout
+            None,  # Cancellable
+            None,  # Callback
+            None,
+        )  # User data
     else:
         # I didn't manage to get it work using Gio :(
         # Fortunately, this seems to work fine
-        os.system('dbus-send --system --print-reply \
+        os.system(
+            'dbus-send --system --print-reply \
             --dest=org.freedesktop.login1 /org/freedesktop/login1 \
-            "org.freedesktop.login1.Manager.PowerOff" boolean:true')
+            "org.freedesktop.login1.Manager.PowerOff" boolean:true'
+        )
+
 
 def action_reboot():
-    if os.getenv('XDG_CURRENT_DESKTOP') == 'GNOME':
+    if os.getenv("XDG_CURRENT_DESKTOP") == "GNOME":
         bus = Gio.bus_get_sync(Gio.BusType.SESSION, None)
-        bus.call('org.gnome.SessionManager', # Bus name
-            '/org/gnome/SessionManager', # Object path
-            'org.gnome.SessionManager', # Interface name
-            'Reboot', # Method name
-            None, # Parameters
-            None, # Reply type
-            Gio.DBusCallFlags.NONE, # Flags
-            -1, # Timeout
-            None, # Cancellable
-            None, # Callback
-            None) # User data
+        bus.call(
+            "org.gnome.SessionManager",  # Bus name
+            "/org/gnome/SessionManager",  # Object path
+            "org.gnome.SessionManager",  # Interface name
+            "Reboot",  # Method name
+            None,  # Parameters
+            None,  # Reply type
+            Gio.DBusCallFlags.NONE,  # Flags
+            -1,  # Timeout
+            None,  # Cancellable
+            None,  # Callback
+            None,
+        )  # User data
     else:
-        os.system('dbus-send --system --print-reply \
+        os.system(
+            'dbus-send --system --print-reply \
             --dest=org.freedesktop.login1 /org/freedesktop/login1 \
-            "org.freedesktop.login1.Manager.Reboot" boolean:true')
+            "org.freedesktop.login1.Manager.Reboot" boolean:true'
+        )
+
 
 def action_suspend():
-    os.system('dbus-send --system --print-reply \
+    os.system(
+        'dbus-send --system --print-reply \
         --dest=org.freedesktop.login1 /org/freedesktop/login1 \
-        "org.freedesktop.login1.Manager.Suspend" boolean:true')
+        "org.freedesktop.login1.Manager.Suspend" boolean:true'
+    )
+
 
 def action_notify(text, play_sound, sound_repeat, cancellable):
-    if text == '': text = _('Timer has finished!')
-    notification = Gio.Notification.new('Time Switch')
+    global _notify_send_missing_warned
+
+    if text == "":
+        text = _("Timer has finished!")
+    notification = Gio.Notification.new("Time Switch")
     notification.set_body(text)
     notification.set_priority(Gio.NotificationPriority.URGENT)
     app = Gio.Application.get_default()
     if sound_repeat:
         notification.add_button(_("Stop"), "app.stop-timer")
-    app.send_notification(None, notification)
+
+    if app is not None:
+        try:
+            app.send_notification("timer-finished", notification)
+        except GLib.Error:
+            pass
+
+    try:
+        subprocess.Popen(
+            [
+                "notify-send",
+                "--urgency=critical",
+                "Time Switch",
+                text,
+            ],
+            stdout=subprocess.DEVNULL,
+            stderr=subprocess.DEVNULL,
+        )
+    except FileNotFoundError:
+        if not _notify_send_missing_warned:
+            _notify_send_missing_warned = True
+            print(
+                "Failed to send notification: notify-send not found. "
+                "Please install libnotify-bin."
+            )
 
     if play_sound:
         player = Player(sound_repeat, cancellable)
         player.play()
 
+
 def action_command(cmd):
-    if os.path.exists('/.flatpak-info'):
-        cmd = 'flatpak-spawn --host ' + cmd
+    if os.path.exists("/.flatpak-info"):
+        cmd = "flatpak-spawn --host " + cmd
     subprocess.Popen(cmd, shell=True)

@@ -1,0 +1,21 @@
+[build-system]
+requires = ["setuptools>=68", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "timeswitch"
+version = "2023.5.dev0"
+description = "Set a task to run after a timer"
+readme = "README.md"
+requires-python = ">=3.10"
+dependencies = ["pycairo", "PyGObject"]
+
+[project.scripts]
+timeswitch = "timeswitch.__main__:main"
+
+[tool.setuptools]
+packages = ["timeswitch"]
+include-package-data = true
+
+[tool.setuptools.package-dir]
+timeswitch = "src"
